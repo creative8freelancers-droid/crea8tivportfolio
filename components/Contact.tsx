@@ -18,7 +18,7 @@ const Contact: React.FC = () => {
       await fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
-        body: new FormData(form), // KEY FIX 🚀
+        body: new FormData(form),
       });
 
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -56,6 +56,7 @@ const Contact: React.FC = () => {
           <div className="p-6 md:p-12 relative">
             {!submitted ? (
               <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <div>
                     <label className="block text-xs font-mono text-gray-400 uppercase mb-2">Director Name</label>
@@ -64,6 +65,7 @@ const Contact: React.FC = () => {
                       className="w-full bg-black/30 border border-white/10 rounded px-4 py-3 text-white focus:border-creativeBlue focus:outline-none transition-colors font-mono text-sm" 
                     />
                   </div>
+
                   <div>
                     <label className="block text-xs font-mono text-gray-400 uppercase mb-2">Contact Email</label>
                     <input 
@@ -71,6 +73,15 @@ const Contact: React.FC = () => {
                       className="w-full bg-black/30 border border-white/10 rounded px-4 py-3 text-white focus:border-neonTeal focus:outline-none transition-colors font-mono text-sm" 
                     />
                   </div>
+                </div>
+
+                {/* ✅ NEW MOBILE NUMBER FIELD */}
+                <div>
+                  <label className="block text-xs font-mono text-gray-400 uppercase mb-2">Mobile Number</label>
+                  <input 
+                    required name="mobile" type="tel" placeholder="+91 98765 43210"
+                    className="w-full bg-black/30 border border-white/10 rounded px-4 py-3 text-white focus:border-creativeBlue focus:outline-none transition-colors font-mono text-sm"
+                  />
                 </div>
 
                 <div>
