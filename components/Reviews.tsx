@@ -8,7 +8,7 @@ export interface Review {
   name: string;
   role?: string;
   videoThumb: string;   // poster / thumbnail
-  videoUrl: string;     // iframe src (youtube or gdrive preview)
+  videoUrl:string;     // iframe src (youtube or gdrive preview)
   directUrl?: string | null; // direct file URL for <video> tag (gdrive uc download), null for youtube
   type?: 'gdrive' | 'youtube';
 }
@@ -83,6 +83,7 @@ const reviews: Review[] = rawReels.map((reel, index) => {
 const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () => void; }> = ({ reviews, startIndex, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [direction, setDirection] = useState(0);
+  const [isIframeLoaded, setIsIframeLoaded] = useState(false);
 
   const changeReel = (newDirection: number) => {
     setDirection(newDirection);
@@ -104,6 +105,11 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [reviews.length]);
+  
+  // Reset iframe load state when video changes to show thumbnail again
+  useEffect(() => {
+    setIsIframeLoaded(false);
+  }, [currentIndex]);
 
   const currentReview = reviews[currentIndex];
 
@@ -121,7 +127,8 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
       className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-black/90 backdrop-blur-lg p-4"
       onClick={onClose}
     >
-      <div className="relative w-full max-w-[920px] flex-1 flex items-center justify-center" onClick={e => e.stopPropagation()}>
+      {/* This container defines the size and aspect ratio for the player and serves as a positioning context for the buttons. */}
+      <div className="relative w-full max-w-md max-h-[90vh] aspect-[9/16]" onClick={e => e.stopPropagation()}>
         <AnimatePresence initial={false} custom={direction}>
           <motion.div
             key={currentIndex}
@@ -131,13 +138,23 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
             animate="center"
             exit="exit"
             transition={{ y: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.18 }, scale: { duration: 0.18 } }}
-            className="absolute w-full h-full max-h-[90vh] aspect-[9/16] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+            className="absolute inset-0 w-full h-full bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10"
           >
+            {/* Thumbnail as a separate layer */}
+            <img
+              src={currentReview.videoThumb}
+              alt="Video thumbnail"
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300 pointer-events-none"
+              style={{ opacity: isIframeLoaded ? 0 : 1 }}
+            />
+            
             {/* iframe for both youtube & gdrive preview */}
             <iframe
               key={currentReview.id}
               src={currentReview.videoUrl}
-              className="absolute inset-0 w-full h-full z-10 border-0"
+              onLoad={() => setIsIframeLoaded(true)}
+              className="absolute inset-0 w-full h-full z-10 border-0 bg-transparent transition-opacity duration-500"
+              style={{ opacity: isIframeLoaded ? 1 : 0 }}
               allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
               allowFullScreen
               title={currentReview.name}
@@ -152,6 +169,7 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
           </motion.div>
         </AnimatePresence>
 
+        {/* The buttons are now positioned relative to the new aspect-ratio container. */}
         <button onClick={() => changeReel(-1)} className="absolute left-4 top-1/2 -translate-y-1/2 z-50 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors" aria-label="Previous reel">
           <ChevronLeft className="w-8 h-8 text-white" />
         </button>
