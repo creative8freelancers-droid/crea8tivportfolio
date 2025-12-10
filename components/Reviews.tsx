@@ -185,7 +185,7 @@ const Reviews: React.FC = () => {
                     {/* FIX: Google Drive behaves like YouTube Shorts */}
                     <iframe
                       src={v.videoUrl}
-                      className="w-[200%] h-[200%] scale-[1.25] translate-x-[-25%] translate-y-[-25%]"
+                      className="w-[200%] h-[200%] scale-[1.25] translate-x-[-25%] translate-y-[-10%]"
                       allow="autoplay; encrypted-media"
                     />
                   </div>
@@ -216,3 +216,4 @@ const Reviews: React.FC = () => {
 };
 
 export default Reviews;
+s
