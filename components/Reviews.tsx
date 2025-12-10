@@ -1,48 +1,91 @@
+Here’s the **full single-file React + TypeScript component** (cleaned, fixed for YouTube autoplay inside Google-hosted iframes — no `controls=0` or `playlist` — and supports both Google Drive and YouTube entries). Paste this file as `Reviews.tsx` (or replace your existing file).
+
+```tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { Star, ChevronLeft, ChevronRight, X, Volume2, VolumeX } from 'lucide-react';
-import { Review } from '../types';
 
-// Fix for TypeScript errors with framer-motion types
+// Local type to make this file self-contained
+export interface Review {
+  id: number;
+  name: string;
+  role?: string;
+  videoThumb: string;   // poster / thumbnail
+  videoUrl: string;     // iframe src (youtube or gdrive preview)
+  directUrl?: string | null; // direct file URL for <video> tag (gdrive uc download), null for youtube
+  type?: 'gdrive' | 'youtube';
+}
+
+// Fix for framer-motion TypeScript mismatch
 const MotionDiv = motion.div as any;
 
-// Data sourced from the user's provided Google Sheet to remove dummy content
-const rawReels = [
-  { filename: 'Client Reel 1.mp4', id: '1PEzds--VSWIH5T64fLjOgOuYD3O941-G' },
-  { filename: 'Client Reel 2.mp4', id: '1A64F0T0nEpPf9V9GZA-8T-TPDoJycVZC' },
-  { filename: 'Client Reel 3.mp4', id: '1pBGPrZVN4mFmA_fIreumMvHri5e_wjTx' },
-  { filename: 'Client Reel 4.mp4', id: '1bcMgRl5TROgaPsCOnzgn0uBhZzeklCmP' },
-  { filename: 'Client Reel 5.mp4', id: '1xG2izuifeTd4Lw2m5b-8ND77B2iD2nHR' },
-  { filename: 'Client Reel 6.mp4', id: '1XavSXaCp_gG6UZ1IshA3yiDGrQh9AIr6' },
-  { filename: 'Client Reel 7.mp4', id: '1uMgnqdgE6Ire7SRr1UsSpPmN5d9hB7lU' },
-  { filename: 'Client Reel 8.mp4', id: '1nGpIzXtywwU-D4wsj9xypB4AXwzz8z38' },
-  { filename: 'Client Reel 9.mp4', id: '15gut9togQF62JPpS8B1V_e52pTQR8UCQ' },
-  { filename: 'Client Reel 10.mp4', id: '1SJ4s45WKQB4PLaj6XkYQ1OrxpI5ExUC4' },
+/* -----------------------
+   Raw reels (GDrive + YouTube)
+   - Keep `type` to decide rendering
+   ----------------------- */
+const rawReels: Array<{ type: 'gdrive' | 'youtube'; filename: string; id: string; }> = [
+  // Google Drive videos (keep these as GDrive if you want <video> playback via directUrl)
+  { type: 'gdrive', filename: 'Client Reel 1.mp4', id: '1PEzds--VSWIH5T64fLjOgOuYD3O941-G' },
+  { type: 'gdrive', filename: 'Client Reel 2.mp4', id: '1A64F0T0nEpPf9V9GZA-8T-TPDoJycVZC' },
+  { type: 'gdrive', filename: 'Client Reel 3.mp4', id: '1pBGPrZVN4mFmA_fIreumMvHri5e_wjTx' },
+  { type: 'gdrive', filename: 'Client Reel 4.mp4', id: '1bcMgRl5TROgaPsCOnzgn0uBhZzeklCmP' },
+  { type: 'gdrive', filename: 'Client Reel 5.mp4', id: '1xG2izuifeTd4Lw2m5b-8ND77B2iD2nHR' },
+  { type: 'gdrive', filename: 'Client Reel 6.mp4', id: '1XavSXaCp_gG6UZ1IshA3yiDGrQh9AIr6' },
+  { type: 'gdrive', filename: 'Client Reel 7.mp4', id: '1uMgnqdgE6Ire7SRr1UsSpPmN5d9hB7lU' },
+  { type: 'gdrive', filename: 'Client Reel 8.mp4', id: '1nGpIzXtywwU-D4wsj9xypB4AXwzz8z38' },
+  { type: 'gdrive', filename: 'Client Reel 9.mp4', id: '15gut9togQF62JPpS8B1V_e52pTQR8UCQ' },
+  { type: 'gdrive', filename: 'Client Reel 10.mp4', id: '1SJ4s45WKQB4PLaj6XkYQ1OrxpI5ExUC4' },
+
+  // YouTube Shorts (autoplay-safe embed URL: no playlist, no controls=0)
+  { type: 'youtube', filename: 'Reel YT 1.mp4', id: 'kKkfUabtC0k' },
+  { type: 'youtube', filename: 'Reel YT 2.mp4', id: 'e6umK6VXrjs' },
+  { type: 'youtube', filename: 'Reel YT 3.mp4', id: 'dPYBTUzM0xs' },
 ];
 
+/* -----------------------
+   Map rawReels -> reviews array used by component
+   - YouTube: iframe embed URL uses autoplay=1&mute=1&loop=1&playsinline=1 (no controls=0 / playlist)
+   - GDrive: we keep preview & direct download link (directUrl) for <video> tag
+   ----------------------- */
 const reviews: Review[] = rawReels.map((reel, index) => {
-  // Create a display-friendly name from the filename
   const displayName = reel.filename
-    .replace(/\.mp4$/i, '') // Remove .mp4 extension from the end
-    .replace(/_/g, ' ') // Replace underscores with spaces
-    .replace(/\b\w/g, l => l.toUpperCase()); // Capitalize first letter of each word
+    .replace(/\.mp4$/i, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, l => l.toUpperCase());
 
+  if (reel.type === 'youtube') {
+    return {
+      id: index + 1,
+      name: displayName,
+      type: 'youtube',
+      videoThumb: `https://i.ytimg.com/vi/${reel.id}/hqdefault.jpg`,
+      // Safe embed URL for many hosted sandboxes (autoplay + muted + loop + playsinline)
+      videoUrl: `https://www.youtube.com/embed/${reel.id}?autoplay=1&mute=1&loop=1&playsinline=1`,
+      directUrl: null,
+    };
+  }
+
+  // Google Drive item
   return {
     id: index + 1,
     name: displayName,
-    videoThumb: `https://drive.google.com/thumbnail?id=${reel.id}&sz=w600`, // Increased thumbnail size for better quality poster
-    // FIX: Use the correct Google Drive embed URL for iframes to ensure playback
+    type: 'gdrive',
+    videoThumb: `https://drive.google.com/thumbnail?id=${reel.id}&sz=w600`,
+    // iframe preview works for Drive inside many contexts (but Drive embedding has caveats depending on host)
     videoUrl: `https://drive.google.com/file/d/${reel.id}/preview`,
-    // Direct link for autoplay video tag
+    // directUrl can be used in <video src=...> for in-browser playback — may require the file to be publicly accessible
     directUrl: `https://drive.google.com/uc?export=download&id=${reel.id}`,
   };
 });
 
-
-// Sub-component for the full-screen reel viewer
+/* -----------------------
+   ReelViewer - full-screen modal viewer
+   - Uses iframe for both YouTube and Drive (videoUrl field)
+   - Keyboard nav + swipe-safe
+   ----------------------- */
 const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () => void; }> = ({ reviews, startIndex, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
-  const [direction, setDirection] = useState(0); // For animation direction
+  const [direction, setDirection] = useState(0);
 
   const changeReel = (newDirection: number) => {
     setDirection(newDirection);
@@ -56,11 +99,9 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        changeReel(1);
+        e.preventDefault(); changeReel(1);
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        changeReel(-1);
+        e.preventDefault(); changeReel(-1);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -70,9 +111,9 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
   const currentReview = reviews[currentIndex];
 
   const variants = {
-    enter: (direction: number) => ({ y: direction > 0 ? '100%' : '-100%', opacity: 0, scale: 0.8 }),
+    enter: (dir: number) => ({ y: dir > 0 ? '100%' : '-100%', opacity: 0, scale: 0.9 }),
     center: { zIndex: 1, y: 0, opacity: 1, scale: 1 },
-    exit: (direction: number) => ({ zIndex: 0, y: direction < 0 ? '100%' : '-100%', opacity: 0, scale: 0.8 }),
+    exit: (dir: number) => ({ zIndex: 0, y: dir < 0 ? '100%' : '-100%', opacity: 0, scale: 0.9 }),
   };
 
   return (
@@ -83,7 +124,7 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
       className="fixed inset-0 z-[10000] flex flex-col items-center justify-center bg-black/90 backdrop-blur-lg p-4"
       onClick={onClose}
     >
-      <div className="relative w-full max-w-[420px] flex-1 flex items-center justify-center" onClick={e => e.stopPropagation()}>
+      <div className="relative w-full max-w-[920px] flex-1 flex items-center justify-center" onClick={e => e.stopPropagation()}>
         <AnimatePresence initial={false} custom={direction}>
           <motion.div
             key={currentIndex}
@@ -92,21 +133,20 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ y: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 }, scale: { duration: 0.2 } }}
-            className="absolute w-full h-full max-h-[800px] aspect-[9/16] bg-black rounded-2xl overflow-hidden shadow-2xl shadow-creativeBlue/20 border border-white/10"
+            transition={{ y: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.18 }, scale: { duration: 0.18 } }}
+            className="absolute w-full h-full max-h-[90vh] aspect-[9/16] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10"
           >
-            {/* FIX: Replaced the non-functional <video> tag with a reliable <iframe> for Google Drive */}
+            {/* iframe for both youtube & gdrive preview */}
             <iframe
-              key={currentReview.id} // Force iframe to reload when the source changes
+              key={currentReview.id}
               src={currentReview.videoUrl}
               className="absolute inset-0 w-full h-full z-10 border-0"
-              allow="autoplay; encrypted-media"
+              allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
               allowFullScreen
               title={currentReview.name}
             />
-           
+
             <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20 p-6 flex flex-col justify-end pointer-events-none">
-              {/* Cleaned up display - No avatar or quote */}
               <div>
                 <p className="font-bold text-white text-lg">{currentReview.name}</p>
                 {currentReview.role && <p className="text-sm text-gray-300">{currentReview.role}</p>}
@@ -114,11 +154,16 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
             </div>
           </motion.div>
         </AnimatePresence>
-        <button onClick={() => changeReel(-1)} className="absolute left-4 top-1/2 -translate-y-1/2 z-50 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors" aria-label="Previous reel"><ChevronLeft className="w-8 h-8 text-white" /></button>
-        <button onClick={() => changeReel(1)} className="absolute right-4 top-1/2 -translate-y-1/2 z-50 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors" aria-label="Next reel"><ChevronRight className="w-8 h-8 text-white" /></button>
+
+        <button onClick={() => changeReel(-1)} className="absolute left-4 top-1/2 -translate-y-1/2 z-50 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors" aria-label="Previous reel">
+          <ChevronLeft className="w-8 h-8 text-white" />
+        </button>
+        <button onClick={() => changeReel(1)} className="absolute right-4 top-1/2 -translate-y-1/2 z-50 p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors" aria-label="Next reel">
+          <ChevronRight className="w-8 h-8 text-white" />
+        </button>
       </div>
 
-      <button 
+      <button
         onClick={(e) => { e.stopPropagation(); onClose(); }}
         className="mt-4 z-50 flex items-center gap-2 px-4 py-2 bg-black/60 backdrop-blur-md border border-white/20 rounded-lg text-white hover:bg-red-500 transition-all text-sm font-mono group"
         aria-label="Close viewer"
@@ -130,20 +175,25 @@ const ReelViewer: React.FC<{ reviews: Review[]; startIndex: number; onClose: () 
   );
 };
 
+/* -----------------------
+   Main Reviews component
+   - carousel of cards
+   - active card autoplays when in view (gdrive directUrl used for <video>)
+   - youtube cards show thumbnail; viewer iframe will play youtube video
+   ----------------------- */
 interface ReviewsProps {
-  onViewerStateChange: (isOpen: boolean) => void;
+  onViewerStateChange?: (isOpen: boolean) => void; // optional prop
 }
 
-const Reviews: React.FC<ReviewsProps> = ({ onViewerStateChange }) => {
+const Reviews: React.FC<ReviewsProps> = ({ onViewerStateChange = () => {} }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [viewerState, setViewerState] = useState({ open: false, index: 0 });
   const viewerOpenRef = useRef(false);
-  
-  // Ref for Intersection Observer to trigger autoplay
-  const containerRef = useRef(null);
-  const isInView = useInView(containerRef, { amount: 0.4 }); // Trigger when 40% of section is visible
 
-  // HISTORY MANAGEMENT FOR MODAL
+  const containerRef = useRef<HTMLElement | null>(null);
+  const isInView = useInView(containerRef, { amount: 0.4 });
+
+  // history / popstate handling for modal
   useEffect(() => {
     const handlePopState = () => {
       if (viewerOpenRef.current) {
@@ -152,15 +202,11 @@ const Reviews: React.FC<ReviewsProps> = ({ onViewerStateChange }) => {
       }
     };
 
-    // Add the listener only when the viewer is open.
     if (viewerState.open) {
       window.addEventListener('popstate', handlePopState);
     }
 
-    // Cleanup: remove the listener when the viewer closes or component unmounts.
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [viewerState.open]);
 
   useEffect(() => {
@@ -181,16 +227,19 @@ const Reviews: React.FC<ReviewsProps> = ({ onViewerStateChange }) => {
   const openViewer = (index: number) => {
     setViewerState({ open: true, index });
     viewerOpenRef.current = true;
+    // push history state so Escape/back closes modal
     window.history.pushState({ modal: 'reviews' }, '', window.location.href);
   };
 
   const closeViewer = () => {
+    // use history back so popstate handler catches it
     window.history.back();
   };
 
   const handleNext = () => setActiveIndex((prev) => (prev + 1) % reviews.length);
   const handlePrev = () => setActiveIndex((prev) => (prev - 1 + reviews.length) % reviews.length);
 
+  // calculate card styles for 3D carousel feel
   const getCardStyle = (index: number) => {
     const total = reviews.length;
     let distance = (index - activeIndex);
@@ -214,9 +263,9 @@ const Reviews: React.FC<ReviewsProps> = ({ onViewerStateChange }) => {
 
   const handleCardClick = (index: number) => {
     if (index === activeIndex) {
-        openViewer(index);
+      openViewer(index);
     } else {
-        setActiveIndex(index);
+      setActiveIndex(index);
     }
   };
 
@@ -230,8 +279,14 @@ const Reviews: React.FC<ReviewsProps> = ({ onViewerStateChange }) => {
       </div>
 
       <div className="relative h-[500px] md:h-[600px] w-full flex justify-center items-center perspective-1000 overflow-hidden">
-        <button onClick={handlePrev} className="absolute left-2 md:left-20 z-50 p-2 md:p-4 rounded-full bg-white/5 hover:bg-creativeBlue/20 border border-white/10 hover:border-creativeBlue/50 transition-all text-white backdrop-blur-sm group"><ChevronLeft className="w-6 h-6 md:w-8 md:h-8 group-hover:scale-110 transition-transform" /></button>
-        <button onClick={handleNext} className="absolute right-2 md:right-20 z-50 p-2 md:p-4 rounded-full bg-white/5 hover:bg-creativeBlue/20 border border-white/10 hover:border-creativeBlue/50 transition-all text-white backdrop-blur-sm group"><ChevronRight className="w-6 h-6 md:w-8 md:h-8 group-hover:scale-110 transition-transform" /></button>
+        <button onClick={handlePrev} className="absolute left-2 md:left-20 z-50 p-2 md:p-4 rounded-full bg-white/5 hover:bg-creativeBlue/20 border border-white/10 hover:border-creativeBlue/50 transition-all text-white backdrop-blur-sm group">
+          <ChevronLeft className="w-6 h-6 md:w-8 md:h-8 group-hover:scale-110 transition-transform" />
+        </button>
+
+        <button onClick={handleNext} className="absolute right-2 md:right-20 z-50 p-2 md:p-4 rounded-full bg-white/5 hover:bg-creativeBlue/20 border border-white/10 hover:border-creativeBlue/50 transition-all text-white backdrop-blur-sm group">
+          <ChevronRight className="w-6 h-6 md:w-8 md:h-8 group-hover:scale-110 transition-transform" />
+        </button>
+
         <div className="relative flex items-center justify-center w-full h-full preserve-3d">
           {reviews.map((review, index) => {
             const { isActive, isVisible, style } = getCardStyle(index);
@@ -248,29 +303,30 @@ const Reviews: React.FC<ReviewsProps> = ({ onViewerStateChange }) => {
                 onClick={() => handleCardClick(index)}
               >
                 <div className="relative w-full h-full bg-black group">
-                  {shouldPlay ? (
-                     <div className="w-full h-full relative">
-                        <video
-                            key={`${review.id}-${activeIndex}`}
-                            src={review.directUrl}
-                            poster={review.videoThumb}
-                            className="w-full h-full object-cover"
-                            autoPlay
-                            muted
-                            loop
-                            playsInline
-                        />
-                         {/* Subtle overlay to ensure text contrast even on video */}
-                         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 pointer-events-none" />
-                     </div>
+                  {shouldPlay && review.directUrl ? (
+                    // Direct <video> playback for drive directUrl
+                    <div className="w-full h-full relative">
+                      <video
+                        key={`${review.id}-${activeIndex}`}
+                        src={review.directUrl || undefined}
+                        poster={review.videoThumb}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 pointer-events-none" />
+                    </div>
                   ) : (
                     <>
-                        <img
-                            src={review.videoThumb}
-                            alt="Review Thumbnail"
-                            className="w-full h-full object-cover transition-transform duration-700"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90" />
+                      {/* Thumbnail for both youtube & gdrive when not autoplaying in card */}
+                      <img
+                        src={review.videoThumb}
+                        alt={review.name}
+                        className="w-full h-full object-cover transition-transform duration-700"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/90" />
                     </>
                   )}
 
@@ -290,8 +346,10 @@ const Reviews: React.FC<ReviewsProps> = ({ onViewerStateChange }) => {
             );
           })}
         </div>
+
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[80%] h-20 bg-black/50 blur-3xl z-0 pointer-events-none" />
       </div>
+
       <AnimatePresence>
         {viewerState.open && (
           <ReelViewer
@@ -306,3 +364,16 @@ const Reviews: React.FC<ReviewsProps> = ({ onViewerStateChange }) => {
 };
 
 export default Reviews;
+```
+
+Paste and run — this file:
+
+* Adds your **3 YouTube Shorts** (IDs included).
+* Uses a **YouTube-safe embed URL** to avoid Error 153: `?autoplay=1&mute=1&loop=1&playsinline=1`.
+* Keeps Google Drive entries working (cards will use `<video>` playback when active and in view; viewer always uses iframe).
+* Includes keyboard nav, modal history handling, and in-view autoplay.
+
+If you want I can:
+
+* Convert GDrive entries to YouTube (recommended for consistent autoplay) — say **"convert GDrive to YT"**.
+* Or produce a smaller bundle (minified / stripped comments).
