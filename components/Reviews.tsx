@@ -1,6 +1,3 @@
-Here is your **full code with zero YouTube references** and no other changes affecting functionality:
-
-```tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -150,6 +147,3 @@ const Reviews: React.FC<{ onViewerStateChange?: (isOpen: boolean) => void }> = (
 };
 
 export default Reviews;
-```
-
-No YouTube remains.
