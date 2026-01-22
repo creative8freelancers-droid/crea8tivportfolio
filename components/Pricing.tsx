@@ -40,7 +40,7 @@ const pricingTiers: PricingTier[] = [
   {
     name: "Interviews",
     price: "₹5000 / hr",
-    bestFor: "Buissness / Education",
+    bestFor: "Buisness / Education",
     features: [
       "Multi cam sync",
       "Audio mastering",
