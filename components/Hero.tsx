@@ -108,6 +108,29 @@ const Hero: React.FC = () => {
       {/* Text Content */}
       <div className="relative z-10 text-center max-w-4xl px-4 min-h-[300px] flex flex-col items-center">
         
+        {/* Product Launch Announcement */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 2, duration: 0.8 }}
+          className="mb-6 md:mb-8"
+        >
+          <a
+            href="https://app.crea8tiv.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 md:px-5 md:py-2.5 rounded-full bg-creativeBlue/10 border border-creativeBlue/30 text-white text-xs md:text-sm hover:bg-creativeBlue/20 hover:border-creativeBlue/50 transition-all group backdrop-blur-sm shadow-[0_0_15px_rgba(50,138,202,0.15)]"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neonTeal opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-creativeBlue"></span>
+            </span>
+            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-creativeBlue to-neonTeal">New Launch:</span>
+            <span className="text-gray-300 font-medium">c8doc - Most Secured Analyzable Crypto Document</span>
+            <span className="ml-1 md:ml-2 group-hover:translate-x-1 transition-transform text-creativeBlue">→</span>
+          </a>
+        </motion.div>
+
         {/* Typewriter Title */}
         <div className="text-5xl md:text-8xl font-black tracking-tighter mb-4 md:mb-6 min-h-[1.1em] flex items-center justify-center flex-wrap">
            <span className="text-white">{firstPart}</span>
